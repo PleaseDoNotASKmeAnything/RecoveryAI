@@ -30,6 +30,32 @@
 ✅ Full-stack foundation complete
 
 
+## Day 2
+
+### Completed
+
+- Configured Neon PostgreSQL database.
+- Added secure environment configuration using `.env`.
+- Added SQLAlchemy database engine.
+- Added psycopg PostgreSQL driver.
+- Verified Python-to-Neon PostgreSQL connectivity.
+- Added database health endpoint.
+- Verified database connection through FastAPI.
+- Verified API through Swagger documentation.
+
+### Architecture
+
+React Frontend
+        ↓
+FastAPI Backend
+        ↓
+SQLAlchemy
+        ↓
+PostgreSQL
+        ↓
+Neon
+
+
 
 \## Project Structure
 
