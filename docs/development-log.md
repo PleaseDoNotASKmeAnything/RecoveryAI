@@ -56,6 +56,43 @@ PostgreSQL
 Neon
 
 
+## Day 3 — PostgreSQL Schema and Seed Data
+
+### Completed
+- Created PostgreSQL database tables for:
+  - Customers
+  - Subscriptions
+  - Payments
+  - Recovery attempts
+- Added SQLAlchemy models for all core database entities.
+- Added SQLAlchemy session management through `SessionLocal`.
+- Added database table creation functionality.
+- Added database seed script with realistic development data.
+- Seeded the database with:
+  - 8 customers
+  - 8 subscriptions
+  - 8 payments
+  - 5 failed payments with different failure reasons
+  - 3 successful payments
+- Verified that all tables exist in Neon PostgreSQL.
+- Verified seeded data using database queries.
+- Diagnosed a PostgreSQL connectivity issue caused by the original network connection.
+- Confirmed successful connectivity to Neon PostgreSQL through a personal hotspot.
+
+### Database Failure Scenarios
+- `insufficient_funds`
+- `card_expired`
+- `card_declined`
+- `bank_declined`
+- `network_error`
+
+### Verification
+- Database tables successfully created.
+- Seed data successfully verified.
+- Git working tree prepared for Day 3 checkpoint.
+
+### Status
+Day 3 completed successfully.
 
 \## Project Structure
 
