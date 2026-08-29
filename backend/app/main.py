@@ -316,6 +316,53 @@ def update_recovery_attempt(
         db.close()
 
 
+@app.post("/api/recovery/attempts/{attempt_id}/execute")
+def execute_recovery_attempt(attempt_id: int):
+    db = SessionLocal()
+
+    try:
+        attempt = db.get(RecoveryAttempt, attempt_id)
+
+        if not attempt:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery attempt not found",
+            )
+
+        if attempt.status == "completed":
+            raise HTTPException(
+                status_code=400,
+                detail="Recovery attempt has already been completed",
+            )
+
+        if attempt.status == "failed":
+            raise HTTPException(
+                status_code=400,
+                detail="Recovery attempt has already failed",
+            )
+
+        attempt.status = "sent"
+
+        db.commit()
+        db.refresh(attempt)
+
+        return {
+            "message": "Recovery attempt executed successfully",
+            "attempt": {
+                "id": attempt.id,
+                "payment_id": attempt.payment_id,
+                "channel": attempt.channel,
+                "strategy": attempt.strategy,
+                "message": attempt.message,
+                "status": attempt.status,
+                "attempted_at": attempt.attempted_at,
+            },
+        }
+
+    finally:
+        db.close()
+
+
 @app.get("/api/recovery/{payment_id}")
 def get_recovery_strategy(payment_id: int):
     db = SessionLocal()
