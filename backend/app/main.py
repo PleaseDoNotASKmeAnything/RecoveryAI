@@ -212,6 +212,56 @@ def get_recovery_attempts():
         db.close()
 
 
+@app.post("/api/recovery/attempts/{payment_id}")
+def create_recovery_attempt(payment_id: int):
+    db = SessionLocal()
+
+    try:
+        payment = db.get(Payment, payment_id)
+
+        if not payment:
+            raise HTTPException(
+                status_code=404,
+                detail="Payment not found",
+            )
+
+        if payment.status != "failed":
+            raise HTTPException(
+                status_code=400,
+                detail="Recovery attempts can only be created for failed payments",
+            )
+
+        strategy = RecoveryService.determine_strategy(payment)
+
+        recovery_attempt = RecoveryAttempt(
+            payment_id=payment.id,
+            channel="system",
+            strategy=strategy["action"],
+            message=strategy["message"],
+            status="pending",
+        )
+
+        db.add(recovery_attempt)
+        db.commit()
+        db.refresh(recovery_attempt)
+
+        return {
+            "message": "Recovery attempt created successfully",
+            "attempt": {
+                "id": recovery_attempt.id,
+                "payment_id": recovery_attempt.payment_id,
+                "channel": recovery_attempt.channel,
+                "strategy": recovery_attempt.strategy,
+                "message": recovery_attempt.message,
+                "status": recovery_attempt.status,
+                "attempted_at": recovery_attempt.attempted_at,
+            },
+        }
+
+    finally:
+        db.close()
+
+
 @app.patch("/api/recovery/attempts/{attempt_id}")
 def update_recovery_attempt(
     attempt_id: int,
