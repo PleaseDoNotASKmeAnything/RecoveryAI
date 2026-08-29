@@ -52,7 +52,10 @@ def database_health():
 
 
 @app.get("/api/recovery")
-def get_recovery_queue():
+def get_recovery_queue(
+    priority: str | None = None,
+    failure_reason: str | None = None,
+):
     db = SessionLocal()
 
     try:
@@ -67,6 +70,15 @@ def get_recovery_queue():
 
         for payment in payments:
             strategy = RecoveryService.determine_strategy(payment)
+
+            if priority and strategy["priority"] != priority:
+                continue
+
+            if (
+                failure_reason
+                and payment.failure_reason != failure_reason
+            ):
+                continue
 
             results.append({
                 "payment_id": payment.id,
