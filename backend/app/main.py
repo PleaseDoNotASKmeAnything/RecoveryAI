@@ -228,7 +228,10 @@ def create_recovery_attempt(payment_id: int):
         if payment.status != "failed":
             raise HTTPException(
                 status_code=400,
-                detail="Recovery attempts can only be created for failed payments",
+                detail=(
+                    "Recovery attempts can only be created "
+                    "for failed payments"
+                ),
             )
 
         strategy = RecoveryService.determine_strategy(payment)
@@ -341,6 +344,19 @@ def execute_recovery_attempt(attempt_id: int):
                 detail="Recovery attempt has already failed",
             )
 
+        execution_result = RecoveryService.execute_strategy(attempt)
+
+        if not execution_result["success"]:
+            attempt.status = "failed"
+
+            db.commit()
+            db.refresh(attempt)
+
+            raise HTTPException(
+                status_code=400,
+                detail=execution_result["message"],
+            )
+
         attempt.status = "sent"
 
         db.commit()
@@ -348,6 +364,7 @@ def execute_recovery_attempt(attempt_id: int):
 
         return {
             "message": "Recovery attempt executed successfully",
+            "execution": execution_result,
             "attempt": {
                 "id": attempt.id,
                 "payment_id": attempt.payment_id,
