@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
 from app.database import SessionLocal, engine
-from app.models import Customer, Payment, RecoveryAttempt
+from app.models import Payment, RecoveryAttempt
 from app.services.recovery_service import RecoveryService
 
 
@@ -149,6 +149,46 @@ def get_recovery_stats():
             "affected_customers": affected_customers,
             "currency": "USD",
             "priority": priority_counts,
+        }
+
+    finally:
+        db.close()
+
+
+@app.get("/api/recovery/attempts")
+def get_recovery_attempts():
+    db = SessionLocal()
+
+    try:
+        attempts = (
+            db.query(RecoveryAttempt)
+            .order_by(RecoveryAttempt.id)
+            .all()
+        )
+
+        results = []
+
+        for attempt in attempts:
+            payment = attempt.payment
+
+            results.append({
+                "attempt_id": attempt.id,
+                "payment_id": attempt.payment_id,
+                "customer": {
+                    "id": payment.customer.id,
+                    "name": payment.customer.name,
+                    "email": payment.customer.email,
+                },
+                "strategy": attempt.strategy,
+                "channel": attempt.channel,
+                "message": attempt.message,
+                "status": attempt.status,
+                "attempted_at": attempt.attempted_at,
+            })
+
+        return {
+            "count": len(results),
+            "attempts": results,
         }
 
     finally:
