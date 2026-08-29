@@ -1,9 +1,14 @@
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.database import SessionLocal, engine
 from app.models import Payment, RecoveryAttempt
 from app.services.recovery_service import RecoveryService
+
+
+class RecoveryAttemptUpdate(BaseModel):
+    status: str
 
 
 app = FastAPI(
@@ -189,6 +194,60 @@ def get_recovery_attempts():
         return {
             "count": len(results),
             "attempts": results,
+        }
+
+    finally:
+        db.close()
+
+
+@app.patch("/api/recovery/attempts/{attempt_id}")
+def update_recovery_attempt(
+    attempt_id: int,
+    update: RecoveryAttemptUpdate,
+):
+    db = SessionLocal()
+
+    try:
+        attempt = db.get(RecoveryAttempt, attempt_id)
+
+        if not attempt:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery attempt not found",
+            )
+
+        allowed_statuses = {
+            "pending",
+            "sent",
+            "completed",
+            "failed",
+        }
+
+        if update.status not in allowed_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Invalid recovery attempt status",
+                    "allowed_statuses": list(allowed_statuses),
+                },
+            )
+
+        attempt.status = update.status
+
+        db.commit()
+        db.refresh(attempt)
+
+        return {
+            "message": "Recovery attempt updated successfully",
+            "attempt": {
+                "id": attempt.id,
+                "payment_id": attempt.payment_id,
+                "channel": attempt.channel,
+                "strategy": attempt.strategy,
+                "message": attempt.message,
+                "status": attempt.status,
+                "attempted_at": attempt.attempted_at,
+            },
         }
 
     finally:
