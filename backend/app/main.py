@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
 from app.database import SessionLocal, engine
-from app.models import Payment, RecoveryAttempt
+from app.models import Customer, Payment, RecoveryAttempt
 from app.services.recovery_service import RecoveryService
 
 
@@ -81,6 +81,74 @@ def get_recovery_queue():
         return {
             "count": len(results),
             "payments": results,
+        }
+
+    finally:
+        db.close()
+
+
+@app.get("/api/recovery/stats")
+def get_recovery_stats():
+    db = SessionLocal()
+
+    try:
+        failed_payments = (
+            db.query(Payment)
+            .filter(Payment.status == "failed")
+            .all()
+        )
+
+        paid_payments = (
+            db.query(Payment)
+            .filter(Payment.status == "paid")
+            .all()
+        )
+
+        total_failed_amount = sum(
+            float(payment.amount)
+            for payment in failed_payments
+        )
+
+        total_paid_amount = sum(
+            float(payment.amount)
+            for payment in paid_payments
+        )
+
+        total_payments = len(failed_payments) + len(paid_payments)
+
+        recovery_rate = (
+            (len(paid_payments) / total_payments) * 100
+            if total_payments > 0
+            else 0
+        )
+
+        affected_customers = len({
+            payment.customer_id
+            for payment in failed_payments
+        })
+
+        priority_counts = {
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+        }
+
+        for payment in failed_payments:
+            strategy = RecoveryService.determine_strategy(payment)
+            priority = strategy["priority"]
+
+            if priority in priority_counts:
+                priority_counts[priority] += 1
+
+        return {
+            "failed_payments": len(failed_payments),
+            "total_failed_amount": total_failed_amount,
+            "paid_payments": len(paid_payments),
+            "total_paid_amount": total_paid_amount,
+            "recovery_rate": round(recovery_rate, 2),
+            "affected_customers": affected_customers,
+            "currency": "USD",
+            "priority": priority_counts,
         }
 
     finally:
