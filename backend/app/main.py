@@ -344,33 +344,74 @@ def execute_recovery_attempt(attempt_id: int):
                 detail="Recovery attempt has already failed",
             )
 
-        execution_result = RecoveryService.execute_strategy(attempt)
+        # Count only previously executed recovery attempts
+        # for the same payment.
+        previous_executions = (
+            db.query(RecoveryAttempt)
+            .filter(
+                RecoveryAttempt.payment_id == attempt.payment_id,
+                RecoveryAttempt.id != attempt.id,
+                RecoveryAttempt.status.in_(["sent", "completed"]),
+            )
+            .count()
+        )
 
-        if not execution_result["success"]:
+        # Enforce the retry limit for retry-based strategies.
+        if (
+            attempt.strategy == "retry_payment"
+            and not RecoveryService.can_retry(previous_executions)
+        ):
             attempt.status = "failed"
 
             db.commit()
             db.refresh(attempt)
 
-            raise HTTPException(
-                status_code=400,
-                detail=execution_result["message"],
-            )
+            return {
+                "message": "Recovery attempt blocked by retry limit",
+                "execution": {
+                    "success": False,
+                    "action": "escalate",
+                    "message": (
+                        "Maximum recovery attempts reached. "
+                        "Manual review is required."
+                    ),
+                },
+                "attempt": {
+                    "id": attempt.id,
+                    "payment_id": attempt.payment_id,
+                    "channel": attempt.channel,
+                    "strategy": attempt.strategy,
+                    "status": attempt.status,
+                    "attempted_at": attempt.attempted_at,
+                },
+            }
 
-        attempt.status = "sent"
+        # Execute the recovery strategy.
+        execution_result = RecoveryService.execute_strategy(
+            attempt,
+            attempt_count=previous_executions,
+        )
+
+        if execution_result["success"]:
+            attempt.status = "sent"
+        else:
+            attempt.status = "failed"
 
         db.commit()
         db.refresh(attempt)
 
         return {
-            "message": "Recovery attempt executed successfully",
+            "message": (
+                "Recovery attempt executed successfully"
+                if execution_result["success"]
+                else "Recovery attempt execution failed"
+            ),
             "execution": execution_result,
             "attempt": {
                 "id": attempt.id,
                 "payment_id": attempt.payment_id,
                 "channel": attempt.channel,
                 "strategy": attempt.strategy,
-                "message": attempt.message,
                 "status": attempt.status,
                 "attempted_at": attempt.attempted_at,
             },
@@ -397,7 +438,9 @@ def get_recovery_strategy(payment_id: int):
 
         existing_attempt = (
             db.query(RecoveryAttempt)
-            .filter(RecoveryAttempt.payment_id == payment.id)
+            .filter(
+                RecoveryAttempt.payment_id == payment.id
+            )
             .first()
         )
 

@@ -7,6 +7,8 @@ class RecoveryService:
     for a failed payment.
     """
 
+    MAX_RETRIES = 3
+
     STRATEGIES = {
         "insufficient_funds": {
             "action": "retry_payment",
@@ -80,20 +82,39 @@ class RecoveryService:
 
         return strategy
 
-    @staticmethod
-    def execute_strategy(attempt) -> dict:
+    @classmethod
+    def can_retry(cls, attempt_count: int) -> bool:
+        """
+        Determine whether another recovery attempt is allowed.
+        """
+
+        return attempt_count < cls.MAX_RETRIES
+
+    @classmethod
+    def execute_strategy(cls, attempt, attempt_count: int = 0) -> dict:
         """
         Execute the recovery strategy associated with
         a recovery attempt.
 
-        This currently simulates the actual recovery action.
-        Real payment provider, email, or messaging integrations
-        can be connected later.
+        The actual payment provider or communication service
+        can be integrated later. For now, this simulates the
+        recovery action while enforcing the retry limit.
         """
 
         strategy = attempt.strategy
 
         if strategy == "retry_payment":
+
+            if not cls.can_retry(attempt_count):
+                return {
+                    "success": False,
+                    "action": "escalate",
+                    "message": (
+                        "Maximum recovery attempts reached. "
+                        "Manual review is required."
+                    ),
+                }
+
             return {
                 "success": True,
                 "action": "payment_retry_requested",
