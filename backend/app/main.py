@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -15,6 +16,19 @@ app = FastAPI(
     title="RecoveryAI API",
     description="AI-powered revenue recovery platform",
     version="0.1.0",
+)
+
+
+# Allow the React frontend to communicate with the FastAPI backend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -212,6 +226,66 @@ def get_recovery_attempts():
         db.close()
 
 
+@app.get("/api/recovery/analytics")
+def get_recovery_analytics():
+    db = SessionLocal()
+
+    try:
+        attempts = (
+            db.query(RecoveryAttempt)
+            .order_by(RecoveryAttempt.id)
+            .all()
+        )
+
+        total_attempts = len(attempts)
+
+        successful_attempts = sum(
+            1
+            for attempt in attempts
+            if attempt.status in {"sent", "completed"}
+        )
+
+        failed_attempts = sum(
+            1
+            for attempt in attempts
+            if attempt.status == "failed"
+        )
+
+        pending_attempts = sum(
+            1
+            for attempt in attempts
+            if attempt.status == "pending"
+        )
+
+        success_rate = (
+            (successful_attempts / total_attempts) * 100
+            if total_attempts > 0
+            else 0
+        )
+
+        strategy_counts = {}
+
+        for attempt in attempts:
+            strategy = attempt.strategy
+
+            if strategy not in strategy_counts:
+                strategy_counts[strategy] = 0
+
+            strategy_counts[strategy] += 1
+
+        return {
+            "total_attempts": total_attempts,
+            "successful_attempts": successful_attempts,
+            "failed_attempts": failed_attempts,
+            "pending_attempts": pending_attempts,
+            "success_rate": round(success_rate, 2),
+            "strategy_breakdown": strategy_counts,
+        }
+
+    finally:
+        db.close()
+
+
 @app.post("/api/recovery/attempts/{payment_id}")
 def create_recovery_attempt(payment_id: int):
     db = SessionLocal()
@@ -228,10 +302,7 @@ def create_recovery_attempt(payment_id: int):
         if payment.status != "failed":
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "Recovery attempts can only be created "
-                    "for failed payments"
-                ),
+                detail="Recovery attempts can only be created for failed payments",
             )
 
         strategy = RecoveryService.determine_strategy(payment)
@@ -344,38 +415,30 @@ def execute_recovery_attempt(attempt_id: int):
                 detail="Recovery attempt has already failed",
             )
 
-        # Count only previously executed recovery attempts
-        # for the same payment.
-        previous_executions = (
+        # Count previous recovery attempts for the same payment.
+        previous_attempts = (
             db.query(RecoveryAttempt)
             .filter(
                 RecoveryAttempt.payment_id == attempt.payment_id,
                 RecoveryAttempt.id != attempt.id,
-                RecoveryAttempt.status.in_(["sent", "completed"]),
             )
             .count()
         )
 
-        # Enforce the retry limit for retry-based strategies.
-        if (
-            attempt.strategy == "retry_payment"
-            and not RecoveryService.can_retry(previous_executions)
-        ):
-            attempt.status = "failed"
+        execution = RecoveryService.execute_strategy(
+            attempt,
+            previous_attempts,
+        )
+
+        if execution["success"]:
+            attempt.status = "sent"
 
             db.commit()
             db.refresh(attempt)
 
             return {
-                "message": "Recovery attempt blocked by retry limit",
-                "execution": {
-                    "success": False,
-                    "action": "escalate",
-                    "message": (
-                        "Maximum recovery attempts reached. "
-                        "Manual review is required."
-                    ),
-                },
+                "message": "Recovery attempt executed successfully",
+                "execution": execution,
                 "attempt": {
                     "id": attempt.id,
                     "payment_id": attempt.payment_id,
@@ -386,27 +449,15 @@ def execute_recovery_attempt(attempt_id: int):
                 },
             }
 
-        # Execute the recovery strategy.
-        execution_result = RecoveryService.execute_strategy(
-            attempt,
-            attempt_count=previous_executions,
-        )
-
-        if execution_result["success"]:
-            attempt.status = "sent"
-        else:
-            attempt.status = "failed"
+        # Retry limit reached.
+        attempt.status = "failed"
 
         db.commit()
         db.refresh(attempt)
 
         return {
-            "message": (
-                "Recovery attempt executed successfully"
-                if execution_result["success"]
-                else "Recovery attempt execution failed"
-            ),
-            "execution": execution_result,
+            "message": "Recovery attempt blocked by retry limit",
+            "execution": execution,
             "attempt": {
                 "id": attempt.id,
                 "payment_id": attempt.payment_id,
@@ -438,9 +489,7 @@ def get_recovery_strategy(payment_id: int):
 
         existing_attempt = (
             db.query(RecoveryAttempt)
-            .filter(
-                RecoveryAttempt.payment_id == payment.id
-            )
+            .filter(RecoveryAttempt.payment_id == payment.id)
             .first()
         )
 
