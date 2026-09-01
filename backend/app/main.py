@@ -83,7 +83,21 @@ def get_recovery_queue(
         results = []
 
         for payment in payments:
-            strategy = RecoveryService.determine_strategy(payment)
+
+            # Count previous recovery attempts for this payment.
+            attempt_count = (
+                db.query(RecoveryAttempt)
+                .filter(
+                    RecoveryAttempt.payment_id == payment.id
+                )
+                .count()
+            )
+
+            # Use payment history when determining strategy.
+            strategy = RecoveryService.determine_strategy(
+                payment,
+                attempt_count,
+            )
 
             if priority and strategy["priority"] != priority:
                 continue
@@ -106,6 +120,7 @@ def get_recovery_queue(
                 "amount": float(payment.amount),
                 "currency": payment.currency,
                 "due_date": payment.due_date,
+                "attempt_count": attempt_count,
                 "recovery": strategy,
             })
 
@@ -145,7 +160,9 @@ def get_recovery_stats():
             for payment in paid_payments
         )
 
-        total_payments = len(failed_payments) + len(paid_payments)
+        total_payments = (
+            len(failed_payments) + len(paid_payments)
+        )
 
         recovery_rate = (
             (len(paid_payments) / total_payments) * 100
@@ -165,7 +182,20 @@ def get_recovery_stats():
         }
 
         for payment in failed_payments:
-            strategy = RecoveryService.determine_strategy(payment)
+
+            attempt_count = (
+                db.query(RecoveryAttempt)
+                .filter(
+                    RecoveryAttempt.payment_id == payment.id
+                )
+                .count()
+            )
+
+            strategy = RecoveryService.determine_strategy(
+                payment,
+                attempt_count,
+            )
+
             priority = strategy["priority"]
 
             if priority in priority_counts:
@@ -302,10 +332,25 @@ def create_recovery_attempt(payment_id: int):
         if payment.status != "failed":
             raise HTTPException(
                 status_code=400,
-                detail="Recovery attempts can only be created for failed payments",
+                detail=(
+                    "Recovery attempts can only be created "
+                    "for failed payments"
+                ),
             )
 
-        strategy = RecoveryService.determine_strategy(payment)
+        # Count existing attempts before creating a new one.
+        attempt_count = (
+            db.query(RecoveryAttempt)
+            .filter(
+                RecoveryAttempt.payment_id == payment.id
+            )
+            .count()
+        )
+
+        strategy = RecoveryService.determine_strategy(
+            payment,
+            attempt_count,
+        )
 
         recovery_attempt = RecoveryAttempt(
             payment_id=payment.id,
@@ -344,7 +389,10 @@ def update_recovery_attempt(
     db = SessionLocal()
 
     try:
-        attempt = db.get(RecoveryAttempt, attempt_id)
+        attempt = db.get(
+            RecoveryAttempt,
+            attempt_id,
+        )
 
         if not attempt:
             raise HTTPException(
@@ -395,7 +443,10 @@ def execute_recovery_attempt(attempt_id: int):
     db = SessionLocal()
 
     try:
-        attempt = db.get(RecoveryAttempt, attempt_id)
+        attempt = db.get(
+            RecoveryAttempt,
+            attempt_id,
+        )
 
         if not attempt:
             raise HTTPException(
@@ -406,13 +457,17 @@ def execute_recovery_attempt(attempt_id: int):
         if attempt.status == "completed":
             raise HTTPException(
                 status_code=400,
-                detail="Recovery attempt has already been completed",
+                detail=(
+                    "Recovery attempt has already been completed"
+                ),
             )
 
         if attempt.status == "failed":
             raise HTTPException(
                 status_code=400,
-                detail="Recovery attempt has already failed",
+                detail=(
+                    "Recovery attempt has already failed"
+                ),
             )
 
         # Count previous recovery attempts for the same payment.
@@ -437,7 +492,9 @@ def execute_recovery_attempt(attempt_id: int):
             db.refresh(attempt)
 
             return {
-                "message": "Recovery attempt executed successfully",
+                "message": (
+                    "Recovery attempt executed successfully"
+                ),
                 "execution": execution,
                 "attempt": {
                     "id": attempt.id,
@@ -456,7 +513,9 @@ def execute_recovery_attempt(attempt_id: int):
         db.refresh(attempt)
 
         return {
-            "message": "Recovery attempt blocked by retry limit",
+            "message": (
+                "Recovery attempt blocked by retry limit"
+            ),
             "execution": execution,
             "attempt": {
                 "id": attempt.id,
@@ -477,7 +536,10 @@ def get_recovery_strategy(payment_id: int):
     db = SessionLocal()
 
     try:
-        payment = db.get(Payment, payment_id)
+        payment = db.get(
+            Payment,
+            payment_id,
+        )
 
         if not payment:
             raise HTTPException(
@@ -485,11 +547,25 @@ def get_recovery_strategy(payment_id: int):
                 detail="Payment not found",
             )
 
-        strategy = RecoveryService.determine_strategy(payment)
+        # Count existing recovery attempts.
+        attempt_count = (
+            db.query(RecoveryAttempt)
+            .filter(
+                RecoveryAttempt.payment_id == payment.id
+            )
+            .count()
+        )
+
+        strategy = RecoveryService.determine_strategy(
+            payment,
+            attempt_count,
+        )
 
         existing_attempt = (
             db.query(RecoveryAttempt)
-            .filter(RecoveryAttempt.payment_id == payment.id)
+            .filter(
+                RecoveryAttempt.payment_id == payment.id
+            )
             .first()
         )
 
@@ -513,6 +589,7 @@ def get_recovery_strategy(payment_id: int):
             "payment_id": payment.id,
             "payment_status": payment.status,
             "failure_reason": payment.failure_reason,
+            "attempt_count": attempt_count,
             "recovery": strategy,
             "recovery_attempt": {
                 "id": recovery_attempt.id,
