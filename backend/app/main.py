@@ -83,8 +83,7 @@ def get_recovery_queue(
         results = []
 
         for payment in payments:
-
-            # Count previous recovery attempts for this payment.
+            # Count previous recovery attempts.
             attempt_count = (
                 db.query(RecoveryAttempt)
                 .filter(
@@ -93,7 +92,7 @@ def get_recovery_queue(
                 .count()
             )
 
-            # Use payment history when determining strategy.
+            # Determine strategy using the current attempt count.
             strategy = RecoveryService.determine_strategy(
                 payment,
                 attempt_count,
@@ -161,7 +160,8 @@ def get_recovery_stats():
         )
 
         total_payments = (
-            len(failed_payments) + len(paid_payments)
+            len(failed_payments) +
+            len(paid_payments)
         )
 
         recovery_rate = (
@@ -182,7 +182,6 @@ def get_recovery_stats():
         }
 
         for payment in failed_payments:
-
             attempt_count = (
                 db.query(RecoveryAttempt)
                 .filter(
@@ -458,7 +457,8 @@ def execute_recovery_attempt(attempt_id: int):
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Recovery attempt has already been completed"
+                    "Recovery attempt has already "
+                    "been completed"
                 ),
             )
 
@@ -547,7 +547,8 @@ def get_recovery_strategy(payment_id: int):
                 detail="Payment not found",
             )
 
-        # Count existing recovery attempts.
+        # Count existing recovery attempts without
+        # creating a new database record.
         attempt_count = (
             db.query(RecoveryAttempt)
             .filter(
@@ -561,29 +562,27 @@ def get_recovery_strategy(payment_id: int):
             attempt_count,
         )
 
-        existing_attempt = (
+        # Return the latest existing recovery attempt,
+        # if one exists.
+        latest_attempt = (
             db.query(RecoveryAttempt)
             .filter(
                 RecoveryAttempt.payment_id == payment.id
             )
+            .order_by(RecoveryAttempt.id.desc())
             .first()
         )
 
-        if existing_attempt:
-            recovery_attempt = existing_attempt
+        recovery_attempt = None
 
-        else:
-            recovery_attempt = RecoveryAttempt(
-                payment_id=payment.id,
-                channel="system",
-                strategy=strategy["action"],
-                message=strategy["message"],
-                status="pending",
-            )
-
-            db.add(recovery_attempt)
-            db.commit()
-            db.refresh(recovery_attempt)
+        if latest_attempt:
+            recovery_attempt = {
+                "id": latest_attempt.id,
+                "channel": latest_attempt.channel,
+                "strategy": latest_attempt.strategy,
+                "status": latest_attempt.status,
+                "attempted_at": latest_attempt.attempted_at,
+            }
 
         return {
             "payment_id": payment.id,
@@ -591,12 +590,7 @@ def get_recovery_strategy(payment_id: int):
             "failure_reason": payment.failure_reason,
             "attempt_count": attempt_count,
             "recovery": strategy,
-            "recovery_attempt": {
-                "id": recovery_attempt.id,
-                "channel": recovery_attempt.channel,
-                "status": recovery_attempt.status,
-                "attempted_at": recovery_attempt.attempted_at,
-            },
+            "recovery_attempt": recovery_attempt,
         }
 
     finally:
