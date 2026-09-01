@@ -192,7 +192,7 @@ function App() {
           onClick={fetchDashboardData}
           disabled={loading}
         >
-          ↻ Refresh
+          â†» Refresh
         </button>
       </header>
 
@@ -249,16 +249,16 @@ function App() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">✓</div>
+              <div className="stat-icon">âœ“</div>
 
               <div>
-                <p>Recovery Rate</p>
+                <p>Payment Success Rate</p>
                 <h3>{stats.recovery_rate}%</h3>
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">◉</div>
+              <div className="stat-icon">â—‰</div>
 
               <div>
                 <p>Affected Customers</p>
@@ -392,7 +392,7 @@ function App() {
 
           {payments.length === 0 ? (
             <div className="empty-state">
-              <div>✓</div>
+              <div>âœ“</div>
 
               <h3>No failed payments</h3>
 
@@ -614,7 +614,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  ✓ Retry Limit Reached
+                                  âœ“ Retry Limit Reached
                                 </span>
                               </div>
                             ) : latestAttempt.status ===
@@ -634,7 +634,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  ✓ Recovery action completed
+                                  âœ“ Recovery action completed
                                 </span>
                               </div>
                             ) : latestAttempt.status ===
@@ -654,7 +654,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  ⚠ Manual Review
+                                  âš  Manual Review
                                 </span>
                               </div>
                             ) : (
@@ -724,7 +724,7 @@ function App() {
                       </strong>
 
                       <span>
-                        Payment #{attempt.payment_id} ·{" "}
+                        Payment #{attempt.payment_id} Â·{" "}
                         {attempt.customer.name}
                       </span>
                     </div>
