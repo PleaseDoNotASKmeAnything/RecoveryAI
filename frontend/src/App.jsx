@@ -436,8 +436,11 @@ function App() {
                       actionLoading ===
                         `execute-${latestAttempt.attempt_id}`;
 
+                    const isRetryStrategy =
+                      payment.recovery.action === "retry_payment";
+
                     const retryLimitReached =
-                      attemptCount >= 3;
+                      isRetryStrategy && attemptCount >= 3;
 
                     return (
                       <tr
@@ -560,6 +563,7 @@ function App() {
                               </div>
                             ) : latestAttempt.status ===
                                 "sent" &&
+                              isRetryStrategy &&
                               !retryLimitReached ? (
                               <div>
                                 <div className="attempt-info">
@@ -593,6 +597,7 @@ function App() {
                               </div>
                             ) : latestAttempt.status ===
                                 "sent" &&
+                              isRetryStrategy &&
                               retryLimitReached ? (
                               <div className="recovery-complete">
                                 <div className="attempt-info">
@@ -610,6 +615,26 @@ function App() {
 
                                 <span className="blocked-text">
                                   ✓ Retry Limit Reached
+                                </span>
+                              </div>
+                            ) : latestAttempt.status ===
+                                "sent" ? (
+                              <div className="recovery-complete">
+                                <div className="attempt-info">
+                                  <span>
+                                    Attempt #
+                                    {
+                                      latestAttempt.attempt_id
+                                    }
+                                  </span>
+
+                                  <span className="status-badge sent">
+                                    sent
+                                  </span>
+                                </div>
+
+                                <span className="blocked-text">
+                                  ✓ Recovery action completed
                                 </span>
                               </div>
                             ) : latestAttempt.status ===
@@ -704,18 +729,20 @@ function App() {
                       </span>
                     </div>
 
-                    <div className="attempt-strategy">
-                      {attempt.strategy.replaceAll(
-                        "_",
-                        " "
-                      )}
-                    </div>
+                    <div>
+                      <span className="attempt-strategy">
+                        {attempt.strategy.replaceAll(
+                          "_",
+                          " "
+                        )}
+                      </span>
 
-                    <span
-                      className={`status-badge ${attempt.status}`}
-                    >
-                      {attempt.status}
-                    </span>
+                      <span
+                        className={`status-badge ${attempt.status}`}
+                      >
+                        {attempt.status}
+                      </span>
+                    </div>
                   </div>
                 ))
             )}
