@@ -160,8 +160,8 @@ def get_recovery_stats():
         )
 
         total_payments = (
-            len(failed_payments) +
-            len(paid_payments)
+            len(failed_payments)
+            + len(paid_payments)
         )
 
         recovery_rate = (
@@ -453,20 +453,15 @@ def execute_recovery_attempt(attempt_id: int):
                 detail="Recovery attempt not found",
             )
 
-        if attempt.status == "completed":
+        # An attempt can only be executed once.
+        # Only pending attempts are allowed to enter
+        # the recovery execution engine.
+        if attempt.status != "pending":
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    "Recovery attempt has already "
-                    "been completed"
-                ),
-            )
-
-        if attempt.status == "failed":
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Recovery attempt has already failed"
+                    "Recovery attempt has already been processed. "
+                    f"Current status: {attempt.status}"
                 ),
             )
 
