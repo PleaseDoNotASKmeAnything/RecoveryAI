@@ -1,200 +1,259 @@
 # RecoveryAI
 
-AI-powered revenue recovery system for identifying failed payments, selecting intelligent recovery strategies, and managing recovery attempts through a full-stack dashboard.
+> **AI-assisted revenue recovery platform for failed payments**
 
-## Project Status
+RecoveryAI is a full-stack revenue recovery platform that identifies failed payments, evaluates their recovery potential, recommends the next best recovery action, and manages bounded recovery attempts through an interactive dashboard.
 
-🚀 **Day 7 — Core recovery platform completed and tested.**
+The system combines deterministic recovery decisioning, scoring, retry guardrails, execution tracking, escalation, and analytics into a single workflow.
 
-## Overview
+## 🎯 Problem
 
-RecoveryAI is a full-stack revenue recovery platform designed to help businesses manage failed payments.
+Failed payments directly affect business revenue.
 
-The system analyzes failed payments and determines an appropriate recovery strategy based on:
+A failed transaction should not simply be retried indefinitely. Different failure reasons require different interventions, and repeated unsuccessful attempts can lead to unnecessary retries, poor customer experience, and operational overhead.
 
-- Payment failure reason
+RecoveryAI addresses this by creating a structured recovery workflow:
+
+```text
+Failed Payment
+      ↓
+Analyze Failure
+      ↓
+Score Recovery Potential
+      ↓
+Select Recovery Strategy
+      ↓
+Check Recovery History
+      ↓
+Execute Bounded Action
+      ↓
+Success / Retry / Escalate
+```
+
+## 💡 Solution
+
+RecoveryAI turns a failed payment into an actionable recovery case.
+
+For every failed payment, the system considers:
+- Failure reason
 - Payment amount
 - Previous recovery attempts
 - Recovery score
 - Retry limits
 
-The platform provides a dashboard where recovery attempts can be created, executed, monitored, and escalated to manual review when automatic recovery is no longer appropriate.
+It then recommends an appropriate recovery strategy.
 
-## Tech Stack
+The system also maintains a complete recovery-attempt history and prevents an already-processed attempt from being executed again.
 
-### Frontend
-- React
-- Vite
-- JavaScript
-- CSS
+When automatic recovery is no longer appropriate, the system escalates the payment to `manual_review`.
 
-### Backend
-- Python
-- FastAPI
-- Uvicorn
-- SQLAlchemy
-- Pydantic
-
-### Database
-- PostgreSQL
-- Neon PostgreSQL
-
-## Core Features
-
-### 1. Recovery Queue
-
-Displays all failed payments that require recovery.
-
-Each payment includes:
-
-- Customer information
-- Payment amount
-- Currency
-- Failure reason
-- Due date
-- Number of previous recovery attempts
-- Recommended recovery strategy
-- Recovery priority
-- Recovery score
-
-### 2. Intelligent Recovery Strategy
-
-RecoveryAI determines a recovery action based on the payment failure reason and recovery history.
-
-Supported strategies:
-
-- `retry_payment`
-- `update_payment_method`
-- `contact_customer`
-- `manual_review`
-
-| Failure Reason | Recovery Strategy |
-|---|---|
-| Insufficient funds | Retry payment |
-| Card expired | Update payment method |
-| Card declined | Retry payment |
-| Bank declined | Contact customer |
-| Network error | Retry payment |
-
-### 3. Recovery Scoring
-
-Each failed payment receives a recovery score based on factors such as:
-
-- Failure reason
-- Payment amount
-- Previous recovery attempts
-
-Repeated recovery attempts reduce confidence in another automatic action.
-
-### 4. Retry Guardrails
-
-RecoveryAI prevents unlimited automatic recovery attempts.
-
-Once the retry threshold is reached, the system stops automatic recovery and recommends:
+# 🏗️ Architecture
 
 ```text
-manual_review
+                    ┌──────────────────────┐
+                    │      React UI        │
+                    │      Vite            │
+                    └──────────┬───────────┘
+                               │ REST API
+                               ▼
+                    ┌──────────────────────┐
+                    │      FastAPI         │
+                    │      Backend         │
+                    └──────────┬───────────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+                ▼              ▼              ▼
+        ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+        │  Recovery   │ │  Recovery   │ │  Analytics  │
+        │  Decision   │ │  Execution  │ │   Service   │
+        │   Engine    │ │   Engine    │ │             │
+        └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+               │               │               │
+               └───────────────┼───────────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │    PostgreSQL        │
+                    │       Neon           │
+                    └──────────────────────┘
 ```
 
-### 5. Recovery Attempts
+# 🧠 Recovery Decision Engine
 
-Users can create recovery attempts for failed payments.
+RecoveryAI currently uses a **deterministic, rule-based decision engine** rather than a trained machine-learning model.
 
-Each attempt records:
+This makes the recovery decisions:
+- Explainable
+- Reproducible
+- Easy to audit
+- Easy to test
+- Bounded by explicit business rules
 
-- Payment ID
-- Recovery strategy
-- Channel
-- Message
-- Status
-- Attempt timestamp
+### Supported Strategies
+
+| Failure Reason | Recommended Strategy |
+|---|---|
+| `insufficient_funds` | `retry_payment` |
+| `card_expired` | `update_payment_method` |
+| `card_declined` | `retry_payment` |
+| `bank_declined` | `contact_customer` |
+| `network_error` | `retry_payment` |
+| Maximum attempts reached | `manual_review` |
+
+# 📊 Recovery Scoring
+
+Each failed payment receives a recovery score based on recovery-related signals such as payment failure reason, payment amount, and previous recovery attempts.
+
+The score helps prioritize recovery cases and determine whether automatic recovery remains appropriate.
+
+```text
+Payment
+   ↓
+Failure Reason
+   ↓
+Recovery Score
+   ↓
+Priority
+   ↓
+Recommended Action
+```
+
+# 🛡️ Recovery Guardrails
+
+RecoveryAI is designed around **bounded recovery actions**.
+
+## Retry Limit
+
+Automatic retry attempts are limited. Once the retry threshold is reached, the payment is escalated to manual review.
+
+```text
+Automatic Recovery
+        ↓
+Retry Limit Reached
+        ↓
+Manual Review
+```
+
+## Duplicate Execution Protection
+
+A recovery attempt can only enter the execution engine while its status is `pending`. Once processed, attempting to execute the same recovery attempt again is rejected.
+
+```text
+pending → execute → sent → ❌ execute again
+```
+
+# 🔄 Recovery Lifecycle
+
+Each recovery attempt follows a tracked lifecycle:
+
+```text
+pending
+   │
+   ▼
+execute
+   │
+   ▼
+sent / completed
+   │
+   └──────────────► failed
+```
 
 Supported statuses:
-
 - `pending`
 - `sent`
 - `completed`
 - `failed`
 
-### 6. Recovery Execution
+Every attempt stores the payment ID, recovery strategy, channel, recovery message, status, and attempt timestamp.
 
-Recovery attempts can be executed directly from the dashboard.
+# ⚡ Recovery Execution
 
-The backend currently simulates execution while enforcing retry limits.
+Depending on the selected strategy, the system currently simulates actions such as:
 
-Possible actions include:
+```text
+retry_payment          → Payment retry requested
+update_payment_method  → Customer prompted to update payment method
+contact_customer       → Customer contact requested
+manual_review          → Payment flagged for manual review
+```
 
-- Payment retry requested
-- Payment method update requested
-- Customer contact requested
-- Manual review requested
-- Escalation when retry limits are reached
+### Important
 
-### 7. Analytics Dashboard
+The current execution layer **simulates the external recovery action**. It does not currently perform a real monetary transaction or charge a customer.
 
-The dashboard provides:
+# 📈 Analytics Dashboard
 
+RecoveryAI provides recovery analytics including:
 - Total recovery attempts
 - Successful attempts
 - Failed attempts
 - Pending attempts
-- Recovery success rate
-- Strategy breakdown
+- Recovery attempt success rate
+- Strategy distribution
 
-### 8. Recovery History
+# 🖥️ Dashboard
 
-The dashboard displays previously created recovery attempts and their current status, providing visibility into the recovery lifecycle.
+The frontend provides a centralized recovery workspace.
 
-## API Endpoints
+### Recovery Queue
 
-### Health
+View customer, payment amount, failure reason, recovery priority, recovery score, previous attempts, and recommended strategy.
+
+### Recovery Actions
+
+The UI dynamically changes based on the payment's recovery history and retry limits:
 
 ```text
+Create Attempt → Execute → Create Next Attempt → Manual Review
+```
+
+# 🔌 API
+
+RecoveryAI exposes a REST API through FastAPI.
+
+## Health
+
+```http
 GET /
 GET /health
 GET /health/database
 ```
 
-### Recovery Queue
+## Recovery Queue
 
-```text
+```http
 GET /api/recovery
-```
-
-Optional filters:
-
-```text
 GET /api/recovery?priority=high
 GET /api/recovery?failure_reason=network_error
 ```
 
-### Recovery Statistics
+## Recovery Statistics
 
-```text
+```http
 GET /api/recovery/stats
 ```
 
-### Recovery Analytics
+## Recovery Analytics
 
-```text
+```http
 GET /api/recovery/analytics
 ```
 
-### Recovery Attempts
+## Recovery Attempts
 
-```text
+```http
 GET /api/recovery/attempts
 ```
 
-### Create Recovery Attempt
+## Create Recovery Attempt
 
-```text
+```http
 POST /api/recovery/attempts/{payment_id}
 ```
 
-### Update Recovery Attempt
+## Update Recovery Attempt
 
-```text
+```http
 PATCH /api/recovery/attempts/{attempt_id}
 ```
 
@@ -206,98 +265,89 @@ Example:
 }
 ```
 
-### Execute Recovery Attempt
+## Execute Recovery Attempt
 
-```text
+```http
 POST /api/recovery/attempts/{attempt_id}/execute
 ```
 
-### Get Recovery Strategy
+## Get Recovery Strategy
 
-```text
+```http
 GET /api/recovery/{payment_id}
 ```
 
-## Running the Backend
+# 🗄️ Database
 
-From the project root:
+RecoveryAI uses PostgreSQL for persistent storage. The development environment uses **Neon PostgreSQL**.
 
-```powershell
-cd backend
-```
-
-Activate the virtual environment:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-Start FastAPI:
-
-```powershell
-python -m uvicorn app.main:app --reload
-```
-
-Backend:
+The database stores:
 
 ```text
-http://127.0.0.1:8000
+customers
+subscriptions
+payments
+recovery_attempts
 ```
 
-FastAPI documentation:
+The recovery-attempt table provides the historical state required for retry counting, strategy selection, execution tracking, analytics, and escalation.
 
-```text
-http://127.0.0.1:8000/docs
-```
+### Security
 
-## Running the Frontend
-
-Open another PowerShell terminal from the project root:
-
-```powershell
-cd frontend
-```
-
-Install dependencies if required:
-
-```powershell
-npm install
-```
-
-Start the development server:
-
-```powershell
-npm run dev
-```
-
-Frontend:
-
-```text
-http://localhost:5173
-```
-
-## Database
-
-RecoveryAI uses PostgreSQL for persistent storage and is configured to work with hosted PostgreSQL such as Neon.
-
-Database credentials should be provided through environment variables.
+Database credentials are provided through environment variables.
 
 **Never commit real database credentials to GitHub.**
 
 Use `.env.example` as the configuration template.
 
-## Project Structure
+# 🛠️ Tech Stack
+
+## Frontend
+- React
+- Vite
+- JavaScript
+- CSS
+
+## Backend
+- Python
+- FastAPI
+- Uvicorn
+- SQLAlchemy
+- Pydantic
+
+## Database
+- PostgreSQL
+- Neon PostgreSQL
+
+## Architecture
+- REST API
+- Rule-based recovery engine
+- Stateful recovery workflow
+- Persistent recovery history
+- Analytics
+
+# 📁 Project Structure
 
 ```text
 RecoveryAI/
+│
 ├── backend/
 │   ├── app/
 │   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── customer.py
+│   │   │   ├── payment.py
+│   │   │   ├── recovery.py
+│   │   │   └── subscription.py
+│   │   │
 │   │   ├── services/
+│   │   │   └── recovery_service.py
+│   │   │
 │   │   ├── database.py
 │   │   ├── main.py
 │   │   ├── seed.py
 │   │   └── __init__.py
+│   │
 │   ├── .venv/
 │   └── requirements.txt
 │
@@ -307,6 +357,7 @@ RecoveryAI/
 │   │   ├── App.jsx
 │   │   ├── App.css
 │   │   └── index.css
+│   │
 │   ├── package.json
 │   └── vite.config.js
 │
@@ -317,119 +368,182 @@ RecoveryAI/
 └── README.md
 ```
 
-## Recovery Flow
+# 🚀 Running Locally
+
+## 1. Clone
+
+```powershell
+git clone https://github.com/PleaseDoNotASKmeAnything/RecoveryAI.git
+cd RecoveryAI
+```
+
+## 2. Backend
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+```
+
+Backend: `http://127.0.0.1:8000`
+
+Docs: `http://127.0.0.1:8000/docs`
+
+## 3. Frontend
+
+Open another PowerShell terminal from the project root:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend: `http://localhost:5173`
+
+# 🔐 Environment Configuration
+
+Create required configuration based on `.env.example`:
 
 ```text
-Failed Payment
+DATABASE_URL=your_postgresql_connection_string
+```
+
+Do not commit `.env` files containing real credentials.
+
+# 🧪 Example Recovery Flow
+
+For insufficient funds:
+
+```text
+Payment Failed
       ↓
-Analyze Failure Reason
+Failure = insufficient_funds
       ↓
-Calculate Recovery Score
+Recovery Engine
       ↓
-Determine Recovery Strategy
+Strategy = retry_payment
       ↓
-Check Previous Attempts
+Create Recovery Attempt
       ↓
-Retry Limit Reached?
-      │
-   ┌──┴──┐
-  Yes    No
-   │      │
-   ↓      ↓
-Manual   Execute
-Review   Strategy
-           │
-           ↓
-     Record Attempt
-           │
-           ↓
-     Update Dashboard
+Execute Attempt
+      ↓
+Retry Requested
 ```
 
-## Example Recovery Decisions
-
-### Insufficient Funds
+If repeated retries fail:
 
 ```text
-Strategy: retry_payment
-Priority: medium
+Retry Attempt 1
+      ↓
+Retry Attempt 2
+      ↓
+Retry Attempt 3
+      ↓
+Maximum Attempts Reached
+      ↓
+manual_review
 ```
 
-The system recommends retrying the payment after the customer has had an opportunity to replenish funds.
+# 🎬 Demo Flow
 
-### Card Expired
+1. Open the dashboard and view the failed-payment recovery queue.
+2. Inspect failure reason, amount, recovery score, priority, and previous attempts.
+3. Create a recovery attempt; the backend determines the appropriate strategy.
+4. Execute the attempt; the execution engine performs the corresponding simulated action.
+5. Observe `pending → sent`.
+6. For retryable payments, create additional attempts until the retry threshold is reached.
+7. Observe escalation from `retry_payment` to `manual_review`.
+8. Review analytics and strategy breakdown.
+
+# 🏆 Razorpay Buildathon Alignment
+
+RecoveryAI was designed for the **AI Revenue Recovery** track.
+
+Core workflow:
 
 ```text
-Strategy: update_payment_method
-Priority: medium
+Detect Revenue at Risk
+        ↓
+Determine Intervention
+        ↓
+Execute Bounded Recovery
+        ↓
+Track Outcome
+        ↓
+Escalate When Necessary
 ```
 
-The customer should update their payment method before another payment attempt.
+The implementation focuses on:
+- Explainable recovery decisions
+- Bounded automatic actions
+- Retry limits
+- Manual escalation
+- Recovery history
+- Execution state tracking
+- Duplicate-execution protection
+- Analytics
 
-### Bank Declined
+The current system uses simulated execution so that the complete recovery workflow can be demonstrated safely without performing real customer charges.
 
-```text
-Strategy: contact_customer
-Priority: medium
-```
+# 🧩 Design Principles
 
-The system recommends contacting the customer rather than repeatedly retrying the transaction.
+### Explainability
+Every recovery recommendation is based on explicit rules and payment context.
 
-### Network Error
+### Bounded Automation
+Automatic actions have defined limits.
 
-```text
-Strategy: retry_payment
-Priority: high
-```
+### Human Escalation
+When automatic recovery is no longer appropriate, the system moves the case to manual review.
 
-Network-related failures are suitable for another payment retry, subject to retry guardrails.
+### Auditability
+Every recovery attempt is persisted with its strategy, status, message, and timestamp.
 
-### Retry Limit Reached
+### Safety
+An already-processed recovery attempt cannot be executed again.
 
-```text
-Strategy: manual_review
-Priority: high
-```
+### Separation of Decision and Execution
+The system first determines **what should happen?** and then separately executes the selected recovery action.
 
-The system stops automatic recovery after the configured retry threshold.
+# 🔮 Future Improvements
 
-## Development Notes
-
-The recovery execution layer currently simulates external actions.
-
-Future production integrations could connect recovery strategies to:
-
-- Payment providers
-- Email services
-- SMS providers
-- Customer communication platforms
-- Background job systems
-
-The current architecture keeps these integrations separate from the core recovery decision engine.
-
-## Security Notes
-
-- Never commit `.env` files.
-- Never expose database passwords in source code.
-- Use `.env.example` for required configuration variables.
-- Configure production CORS origins before deployment.
-- Replace simulated recovery actions with authenticated payment-provider integrations in production.
-
-## Future Improvements
-
-Potential future extensions include:
-
-- Stripe/payment gateway integration
-- Automated email recovery campaigns
-- Background retry scheduling
-- AI/LLM-powered recovery messaging
-- Customer lifetime value based prioritization
-- Advanced recovery prediction models
-- Authentication and role-based access
+Potential future extensions:
+- Razorpay test-mode Payment Link integration
+- Razorpay webhook integration
+- Real payment-status synchronization
+- LLM-assisted recovery reasoning
+- Learned recovery scoring
+- Customer communication through email/SMS
+- Automated recovery outcome tracking
+- More advanced prioritization
+- Historical recovery-performance analysis
+- Role-based access control
 - Production deployment
-- Real-time analytics
-- Webhooks for payment status updates
 
-## License
+# 📌 Current Status
 
-This project is currently intended for development and demonstration purposes.
+```text
+✅ Recovery queue
+✅ Recovery strategy engine
+✅ Recovery scoring
+✅ Retry limits
+✅ Manual escalation
+✅ Recovery attempt tracking
+✅ Recovery execution flow
+✅ Duplicate execution protection
+✅ Analytics dashboard
+✅ PostgreSQL persistence
+✅ FastAPI backend
+✅ React frontend
+✅ Local development setup
+```
+
+# 👨‍💻 Author
+
+**Aayush Negi**
+
+Computer Science & Engineering
+
+Built as a full-stack AI-assisted revenue recovery platform.
