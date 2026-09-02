@@ -168,7 +168,9 @@ function App() {
       <div className="app">
         <div className="loading-screen">
           <div className="spinner"></div>
+
           <h2>Loading RecoveryAI...</h2>
+
           <p>Connecting to the recovery engine</p>
         </div>
       </div>
@@ -192,7 +194,7 @@ function App() {
           onClick={fetchDashboardData}
           disabled={loading}
         >
-          â†» Refresh
+          ↻ Refresh
         </button>
       </header>
 
@@ -229,6 +231,7 @@ function App() {
 
               <div>
                 <p>Failed Payments</p>
+
                 <h3>{stats.failed_payments}</h3>
               </div>
             </div>
@@ -249,19 +252,21 @@ function App() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">âœ“</div>
+              <div className="stat-icon">✓</div>
 
               <div>
                 <p>Payment Success Rate</p>
+
                 <h3>{stats.recovery_rate}%</h3>
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">â—‰</div>
+              <div className="stat-icon">◉</div>
 
               <div>
                 <p>Affected Customers</p>
+
                 <h3>{stats.affected_customers}</h3>
               </div>
             </div>
@@ -286,11 +291,15 @@ function App() {
             <div className="analytics-grid">
               <div className="analytics-card">
                 <span>Total Attempts</span>
-                <strong>{analytics.total_attempts}</strong>
+
+                <strong>
+                  {analytics.total_attempts}
+                </strong>
               </div>
 
               <div className="analytics-card">
                 <span>Successful</span>
+
                 <strong>
                   {analytics.successful_attempts}
                 </strong>
@@ -298,6 +307,7 @@ function App() {
 
               <div className="analytics-card">
                 <span>Failed</span>
+
                 <strong>
                   {analytics.failed_attempts}
                 </strong>
@@ -305,13 +315,15 @@ function App() {
 
               <div className="analytics-card">
                 <span>Pending</span>
+
                 <strong>
                   {analytics.pending_attempts}
                 </strong>
               </div>
 
               <div className="analytics-card">
-                <span>Success Rate</span>
+                <span>Recovery Attempt Success Rate</span>
+
                 <strong>
                   {analytics.success_rate}%
                 </strong>
@@ -392,7 +404,7 @@ function App() {
 
           {payments.length === 0 ? (
             <div className="empty-state">
-              <div>âœ“</div>
+              <div>✓</div>
 
               <h3>No failed payments</h3>
 
@@ -437,10 +449,12 @@ function App() {
                         `execute-${latestAttempt.attempt_id}`;
 
                     const isRetryStrategy =
-                      payment.recovery.action === "retry_payment";
+                      payment.recovery.action ===
+                      "retry_payment";
 
                     const retryLimitReached =
-                      isRetryStrategy && attemptCount >= 3;
+                      isRetryStrategy &&
+                      attemptCount >= 3;
 
                     return (
                       <tr
@@ -530,7 +544,7 @@ function App() {
                                   : "Create Attempt"}
                               </button>
                             ) : latestAttempt.status ===
-                                "pending" ? (
+                              "pending" ? (
                               <div>
                                 <div className="attempt-info">
                                   <span>
@@ -614,7 +628,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  âœ“ Retry Limit Reached
+                                  ✓ Retry Limit Reached
                                 </span>
                               </div>
                             ) : latestAttempt.status ===
@@ -634,7 +648,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  âœ“ Recovery action completed
+                                  ✓ Recovery action completed
                                 </span>
                               </div>
                             ) : latestAttempt.status ===
@@ -654,7 +668,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  âš  Manual Review
+                                  ⚠ Manual Review
                                 </span>
                               </div>
                             ) : (
@@ -724,7 +738,7 @@ function App() {
                       </strong>
 
                       <span>
-                        Payment #{attempt.payment_id} Â·{" "}
+                        Payment #{attempt.payment_id} ·{" "}
                         {attempt.customer.name}
                       </span>
                     </div>
