@@ -457,23 +457,6 @@ manual_review
 7. Observe escalation from `retry_payment` to `manual_review`.
 8. Review analytics and strategy breakdown.
 
-# 🏆 Razorpay Buildathon Alignment
-
-RecoveryAI was designed for the **AI Revenue Recovery** track.
-
-Core workflow:
-
-```text
-Detect Revenue at Risk
-        ↓
-Determine Intervention
-        ↓
-Execute Bounded Recovery
-        ↓
-Track Outcome
-        ↓
-Escalate When Necessary
-```
 
 The implementation focuses on:
 - Explainable recovery decisions
