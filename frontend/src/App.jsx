@@ -14,6 +14,7 @@ function App() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedPayment, setSelectedPayment] = useState(null);
 
   const fetchDashboardData = async () => {
     try {
@@ -50,6 +51,13 @@ function App() {
       setPayments(recoveryData.payments || []);
       setAttempts(attemptsData.attempts || []);
       setAnalytics(analyticsData);
+
+      setSelectedPayment((current) => {
+        if (!current) return null;
+        return (recoveryData.payments || []).find(
+          (payment) => payment.payment_id === current.payment_id
+        ) || null;
+      });
     } catch (err) {
       console.error(err);
 
@@ -85,6 +93,45 @@ function App() {
       (attempt) => attempt.payment_id === paymentId
     ).length;
   };
+
+  const openPaymentDetails = (payment) => {
+    setSelectedPayment(payment);
+  };
+
+  const closePaymentDetails = () => {
+    setSelectedPayment(null);
+  };
+
+  const getPaymentAttempts = (paymentId) => {
+    return attempts
+      .filter((attempt) => attempt.payment_id === paymentId)
+      .sort((a, b) => b.attempt_id - a.attempt_id);
+  };
+
+  const getActionExplanation = (payment) => {
+    if (!payment?.recovery) return "No recovery recommendation available.";
+
+    if (payment.recovery.action === "manual_review") {
+      return `Automatic recovery has reached the retry threshold. ${payment.recovery.message}`;
+    }
+
+    if (payment.recovery.action === "retry_payment") {
+      return `${payment.recovery.message} The system will stop automatic retries once the retry limit is reached.`;
+    }
+
+    return payment.recovery.message;
+  };
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        closePaymentDetails();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
 
   const createAttempt = async (paymentId) => {
     try {
@@ -168,9 +215,7 @@ function App() {
       <div className="app">
         <div className="loading-screen">
           <div className="spinner"></div>
-
           <h2>Loading RecoveryAI...</h2>
-
           <p>Connecting to the recovery engine</p>
         </div>
       </div>
@@ -231,7 +276,6 @@ function App() {
 
               <div>
                 <p>Failed Payments</p>
-
                 <h3>{stats.failed_payments}</h3>
               </div>
             </div>
@@ -256,7 +300,6 @@ function App() {
 
               <div>
                 <p>Payment Success Rate</p>
-
                 <h3>{stats.recovery_rate}%</h3>
               </div>
             </div>
@@ -266,7 +309,6 @@ function App() {
 
               <div>
                 <p>Affected Customers</p>
-
                 <h3>{stats.affected_customers}</h3>
               </div>
             </div>
@@ -291,15 +333,11 @@ function App() {
             <div className="analytics-grid">
               <div className="analytics-card">
                 <span>Total Attempts</span>
-
-                <strong>
-                  {analytics.total_attempts}
-                </strong>
+                <strong>{analytics.total_attempts}</strong>
               </div>
 
               <div className="analytics-card">
                 <span>Successful</span>
-
                 <strong>
                   {analytics.successful_attempts}
                 </strong>
@@ -307,7 +345,6 @@ function App() {
 
               <div className="analytics-card">
                 <span>Failed</span>
-
                 <strong>
                   {analytics.failed_attempts}
                 </strong>
@@ -315,7 +352,6 @@ function App() {
 
               <div className="analytics-card">
                 <span>Pending</span>
-
                 <strong>
                   {analytics.pending_attempts}
                 </strong>
@@ -323,7 +359,6 @@ function App() {
 
               <div className="analytics-card">
                 <span>Recovery Attempt Success Rate</span>
-
                 <strong>
                   {analytics.success_rate}%
                 </strong>
@@ -449,16 +484,24 @@ function App() {
                         `execute-${latestAttempt.attempt_id}`;
 
                     const isRetryStrategy =
-                      payment.recovery.action ===
-                      "retry_payment";
+                      payment.recovery.action === "retry_payment";
 
                     const retryLimitReached =
-                      isRetryStrategy &&
-                      attemptCount >= 3;
+                      isRetryStrategy && attemptCount >= 3;
 
                     return (
                       <tr
                         key={payment.payment_id}
+                        className="recovery-row"
+                        onClick={() => openPaymentDetails(payment)}
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openPaymentDetails(payment);
+                          }
+                        }}
+                        aria-label={`View payment ${payment.payment_id} details`}
                       >
                         <td>
                           <div className="customer-cell">
@@ -532,11 +575,10 @@ function App() {
                             {!latestAttempt ? (
                               <button
                                 className="action-button primary"
-                                onClick={() =>
-                                  createAttempt(
-                                    payment.payment_id
-                                  )
-                                }
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  createAttempt(payment.payment_id);
+                                }}
                                 disabled={isCreating}
                               >
                                 {isCreating
@@ -544,7 +586,7 @@ function App() {
                                   : "Create Attempt"}
                               </button>
                             ) : latestAttempt.status ===
-                              "pending" ? (
+                                "pending" ? (
                               <div>
                                 <div className="attempt-info">
                                   <span>
@@ -563,11 +605,10 @@ function App() {
 
                                 <button
                                   className="action-button primary"
-                                  onClick={() =>
-                                    executeAttempt(
-                                      latestAttempt.attempt_id
-                                    )
-                                  }
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    executeAttempt(latestAttempt.attempt_id);
+                                  }}
                                   disabled={isExecuting}
                                 >
                                   {isExecuting
@@ -636,8 +677,7 @@ function App() {
                               <div className="recovery-complete">
                                 <div className="attempt-info">
                                   <span>
-                                    Attempt #
-                                    {
+                                    Attempt #{
                                       latestAttempt.attempt_id
                                     }
                                   </span>
@@ -668,7 +708,7 @@ function App() {
                                 </div>
 
                                 <span className="blocked-text">
-                                  ⚠ Manual Review
+                                  ⚠  Manual Review
                                 </span>
                               </div>
                             ) : (
@@ -721,47 +761,208 @@ function App() {
           <div className="attempts-list">
             {attempts.length === 0 ? (
               <div className="empty-attempts">
-                No recovery attempts have been created yet.
+                <strong>No recovery activity yet</strong>
+                <span>
+                  Actions taken by your recovery workflows will appear here.
+                </span>
               </div>
             ) : (
-              attempts
-                .slice()
-                .reverse()
-                .map((attempt) => (
-                  <div
-                    className="attempt-row"
-                    key={attempt.attempt_id}
-                  >
-                    <div>
-                      <strong>
-                        Attempt #{attempt.attempt_id}
-                      </strong>
+              <div className="activity-timeline">
+                {attempts
+                  .slice()
+                  .sort((a, b) => b.attempt_id - a.attempt_id)
+                  .map((attempt, index) => {
+                    const strategyLabel = attempt.strategy
+                      .replaceAll("_", " ")
+                      .replace(/\w/g, (char) => char.toUpperCase());
 
-                      <span>
-                        Payment #{attempt.payment_id} ·{" "}
-                        {attempt.customer.name}
-                      </span>
-                    </div>
+                    const statusLabel =
+                      attempt.status.charAt(0).toUpperCase() +
+                      attempt.status.slice(1);
 
-                    <div>
-                      <span className="attempt-strategy">
-                        {attempt.strategy.replaceAll(
-                          "_",
-                          " "
-                        )}
-                      </span>
+                    const statusIcon =
+                      attempt.status === "sent"
+                        ? "✓"
+                        : attempt.status === "failed"
+                        ? "!"
+                        : "•";
 
-                      <span
-                        className={`status-badge ${attempt.status}`}
+                    return (
+                      <div
+                        className={`activity-event activity-event-${attempt.status}`}
+                        key={attempt.attempt_id}
                       >
-                        {attempt.status}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                        <div className="activity-event-marker" aria-hidden="true">
+                          {statusIcon}
+                        </div>
+
+                        {index < attempts.length - 1 && (
+                          <div
+                            className="activity-event-line"
+                            aria-hidden="true"
+                          />
+                        )}
+
+                        <div className="activity-event-content">
+                          <div className="activity-event-top">
+                            <div>
+                              <span className="activity-event-title">
+                                Recovery attempt #{attempt.attempt_id}
+                              </span>
+                              <span className="activity-event-meta">
+                                Payment #{attempt.payment_id} ·{" "}
+                                {attempt.customer?.name || "Unknown customer"}
+                              </span>
+                            </div>
+
+                            <span
+                              className={`status-badge ${attempt.status}`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+
+                          <div className="activity-event-details">
+                            <span className="activity-event-strategy">
+                              {strategyLabel}
+                            </span>
+
+                            <span className="activity-event-channel">
+                              Channel: {attempt.channel || "system"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
             )}
           </div>
         </section>
+
+        {selectedPayment && (
+          <>
+            <button
+              className="drawer-backdrop"
+              aria-label="Close payment details"
+              onClick={closePaymentDetails}
+            />
+
+            <aside
+              className="payment-drawer"
+              aria-label="Payment details"
+            >
+              <div className="drawer-header">
+                <div>
+                  <p className="eyebrow">PAYMENT DETAILS</p>
+                  <h3>Payment #{selectedPayment.payment_id}</h3>
+                </div>
+
+                <button
+                  className="drawer-close"
+                  onClick={closePaymentDetails}
+                  aria-label="Close payment details"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="drawer-customer">
+                <div className="drawer-avatar">
+                  {selectedPayment.customer.name.charAt(0)}
+                </div>
+                <div>
+                  <strong>{selectedPayment.customer.name}</strong>
+                  <span>{selectedPayment.customer.email}</span>
+                </div>
+              </div>
+
+              <div className="drawer-summary">
+                <div>
+                  <span>Amount</span>
+                  <strong>
+                    {formatAmount(
+                      selectedPayment.amount,
+                      selectedPayment.currency
+                    )}
+                  </strong>
+                </div>
+                <div>
+                  <span>Failure reason</span>
+                  <strong>
+                    {selectedPayment.failure_reason.replaceAll("_", " ")}
+                  </strong>
+                </div>
+                <div>
+                  <span>Priority</span>
+                  <span
+                    className={`priority-badge ${selectedPayment.recovery.priority}`}
+                  >
+                    {selectedPayment.recovery.priority}
+                  </span>
+                </div>
+              </div>
+
+              <div className="drawer-section">
+                <p className="drawer-label">RECOMMENDED ACTION</p>
+                <div className="drawer-action">
+                  <strong>
+                    {selectedPayment.recovery.action.replaceAll("_", " ")}
+                  </strong>
+                  <span>{selectedPayment.recovery.message}</span>
+                </div>
+              </div>
+
+              <div className="drawer-section explanation-section">
+                <p className="drawer-label">WHY THIS ACTION?</p>
+                <p className="drawer-explanation">
+                  {getActionExplanation(selectedPayment)}
+                </p>
+              </div>
+
+              <div className="drawer-section">
+                <div className="drawer-section-heading">
+                  <p className="drawer-label">RECOVERY HISTORY</p>
+                  <span>
+                    {getAttemptCount(selectedPayment.payment_id)} attempts
+                  </span>
+                </div>
+
+                <div className="recovery-history">
+                  {getPaymentAttempts(selectedPayment.payment_id).length === 0 ? (
+                    <div className="history-empty">
+                      No recovery attempts yet.
+                    </div>
+                  ) : (
+                    getPaymentAttempts(selectedPayment.payment_id).map(
+                      (attempt) => (
+                        <div
+                          className="history-item"
+                          key={attempt.attempt_id}
+                        >
+                          <div className="history-marker" />
+                          <div className="history-content">
+                            <div className="history-topline">
+                              <strong>Attempt #{attempt.attempt_id}</strong>
+                              <span
+                                className={`status-badge ${attempt.status}`}
+                              >
+                                {attempt.status}
+                              </span>
+                            </div>
+                            <span>
+                              {attempt.strategy.replaceAll("_", " ")}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    )
+                  )}
+                </div>
+              </div>
+            </aside>
+          </>
+        )}
       </main>
     </div>
   );
