@@ -13,7 +13,7 @@ class RecoveryAttemptUpdate(BaseModel):
 
 
 app = FastAPI(
-    title="RecoveryAI API",
+    title="RevPay API",
     description="AI-powered revenue recovery platform",
     version="0.1.0",
 )
@@ -35,7 +35,7 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {
-        "message": "RecoveryAI API is running"
+        "message": "RevPay API is running"
     }
 
 

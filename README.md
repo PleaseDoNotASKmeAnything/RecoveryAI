@@ -1,8 +1,8 @@
-# RecoveryAI
+# RevPay
 
 > **AI-assisted revenue recovery platform for failed payments**
 
-RecoveryAI is a full-stack revenue recovery platform that identifies failed payments, evaluates their recovery potential, recommends the next best recovery action, and manages bounded recovery attempts through an interactive dashboard.
+RevPay is a full-stack revenue recovery platform that identifies failed payments, evaluates their recovery potential, recommends the next best recovery action, and manages bounded recovery attempts through an interactive dashboard.
 
 The system combines deterministic recovery decisioning, scoring, retry guardrails, execution tracking, escalation, and analytics into a single workflow.
 
@@ -12,7 +12,7 @@ Failed payments directly affect business revenue.
 
 A failed transaction should not simply be retried indefinitely. Different failure reasons require different interventions, and repeated unsuccessful attempts can lead to unnecessary retries, poor customer experience, and operational overhead.
 
-RecoveryAI addresses this by creating a structured recovery workflow:
+RevPay addresses this by creating a structured recovery workflow:
 
 ```text
 Failed Payment
@@ -32,7 +32,7 @@ Success / Retry / Escalate
 
 ## 💡 Solution
 
-RecoveryAI turns a failed payment into an actionable recovery case.
+RevPay turns a failed payment into an actionable recovery case.
 
 For every failed payment, the system considers:
 - Failure reason
@@ -80,7 +80,7 @@ When automatic recovery is no longer appropriate, the system escalates the payme
 
 # 🧠 Recovery Decision Engine
 
-RecoveryAI currently uses a **deterministic, rule-based decision engine** rather than a trained machine-learning model.
+RevPay currently uses a **deterministic, rule-based decision engine** rather than a trained machine-learning model.
 
 This makes the recovery decisions:
 - Explainable
@@ -120,7 +120,7 @@ Recommended Action
 
 # 🛡️ Recovery Guardrails
 
-RecoveryAI is designed around **bounded recovery actions**.
+RevPay is designed around **bounded recovery actions**.
 
 ## Retry Limit
 
@@ -183,7 +183,7 @@ The current execution layer **simulates the external recovery action**. It does 
 
 # 📈 Analytics Dashboard
 
-RecoveryAI provides recovery analytics including:
+RevPay provides recovery analytics including:
 - Total recovery attempts
 - Successful attempts
 - Failed attempts
@@ -209,7 +209,7 @@ Create Attempt → Execute → Create Next Attempt → Manual Review
 
 # 🔌 API
 
-RecoveryAI exposes a REST API through FastAPI.
+RevPay exposes a REST API through FastAPI.
 
 ## Health
 
@@ -279,7 +279,7 @@ GET /api/recovery/{payment_id}
 
 # 🗄️ Database
 
-RecoveryAI uses PostgreSQL for persistent storage. The development environment uses **Neon PostgreSQL**.
+RevPay uses PostgreSQL for persistent storage. The development environment uses **Neon PostgreSQL**.
 
 The database stores:
 
@@ -329,7 +329,7 @@ Use `.env.example` as the configuration template.
 # 📁 Project Structure
 
 ```text
-RecoveryAI/
+RevPay/
 │
 ├── backend/
 │   ├── app/
@@ -373,8 +373,8 @@ RecoveryAI/
 ## 1. Clone
 
 ```powershell
-git clone https://github.com/PleaseDoNotASKmeAnything/RecoveryAI.git
-cd RecoveryAI
+git clone https://github.com/PleaseDoNotASKmeAnything/RevPay.git
+cd RevPay
 ```
 
 ## 2. Backend

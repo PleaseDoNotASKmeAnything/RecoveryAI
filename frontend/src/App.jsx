@@ -62,7 +62,7 @@ function App() {
       console.error(err);
 
       setError(
-        "Unable to connect to the RecoveryAI backend. Make sure FastAPI is running."
+        "Unable to connect to the RevPay backend. Make sure FastAPI is running."
       );
     } finally {
       setLoading(false);
@@ -215,7 +215,7 @@ function App() {
       <div className="app">
         <div className="loading-screen">
           <div className="spinner"></div>
-          <h2>Loading RecoveryAI...</h2>
+          <h2>Loading RevPay...</h2>
           <p>Connecting to the recovery engine</p>
         </div>
       </div>
@@ -229,7 +229,7 @@ function App() {
           <div className="brand-mark">R</div>
 
           <div>
-            <h1>RecoveryAI</h1>
+            <h1>RevPay</h1>
             <span>Revenue Recovery Platform</span>
           </div>
         </div>
